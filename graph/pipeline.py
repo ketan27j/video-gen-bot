@@ -115,14 +115,12 @@ def route_after_video_generation(
 
 # ── Graph builder ─────────────────────────────────────────────────────────────
 
-def build_graph(use_sqlite: bool = False, sqlite_path: str = "pipeline_state.db"):
+def build_graph(checkpointer=None):
     """
     Build and compile the LangGraph pipeline.
 
     Args:
-        use_sqlite: If True, use SqliteSaver for persistence across restarts.
-                    If False (default for testing), use in-memory MemorySaver.
-        sqlite_path: Path to SQLite database file.
+        checkpointer: The Langgraph checkpointer instance to use.
     """
     graph = StateGraph(PipelineState)
 
@@ -176,15 +174,7 @@ def build_graph(use_sqlite: bool = False, sqlite_path: str = "pipeline_state.db"
     )
 
     # ── Checkpointer ─────────────────────────────────────────────────────────
-    if use_sqlite:
-        try:
-            from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-            checkpointer = AsyncSqliteSaver.from_conn_string(sqlite_path)
-            logger.info("Using AsyncSqliteSaver at %s", sqlite_path)
-        except ImportError:
-            logger.warning("AsyncSqliteSaver not available, falling back to MemorySaver")
-            checkpointer = MemorySaver()
-    else:
+    if checkpointer is None:
         checkpointer = MemorySaver()
         logger.info("Using MemorySaver (in-memory, non-persistent)")
 

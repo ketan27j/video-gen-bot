@@ -43,14 +43,24 @@ AWAITING_IDEA = 0
 
 # ── Module-level graph instance ───────────────────────────────────────────────
 _graph = None
+_conn = None
+_checkpointer = None
 
 
-def get_graph():
-    global _graph
+async def get_graph():
+    global _graph, _conn, _checkpointer
     if _graph is None:
         use_sqlite = os.getenv("SQLITE_DB_PATH") is not None
         db_path = os.getenv("SQLITE_DB_PATH", "pipeline_state.db")
-        _graph = build_graph(use_sqlite=use_sqlite, sqlite_path=db_path)
+        if use_sqlite:
+            import aiosqlite
+            from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+            _conn = await aiosqlite.connect(db_path)
+            _checkpointer = AsyncSqliteSaver(_conn)
+        else:
+            from langgraph.checkpoint.memory import MemorySaver
+            _checkpointer = MemorySaver()
+        _graph = build_graph(_checkpointer)
     return _graph
 
 
@@ -89,7 +99,7 @@ async def _run_pipeline(
     Advance the pipeline. If initial_state is provided, this is a fresh start.
     Returns the state at the interrupt point, or None if pipeline ended.
     """
-    graph = get_graph()
+    graph = await get_graph()
     config = {"configurable": {"thread_id": thread_id}}
 
     try:
@@ -122,7 +132,7 @@ async def _run_pipeline(
         return None
 
     # Get current state snapshot
-    state = graph.get_state(config)
+    state = await graph.aget_state(config)
     return state.values if state else None
 
 
@@ -251,9 +261,9 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("No active pipeline\\. Send /start to begin\\.", parse_mode=ParseMode.MARKDOWN_V2)
         return
 
-    graph = get_graph()
+    graph = await get_graph()
     config = {"configurable": {"thread_id": thread_id}}
-    state_snapshot = graph.get_state(config)
+    state_snapshot = await graph.aget_state(config)
 
     if not state_snapshot or not state_snapshot.values:
         await update.message.reply_text("Could not retrieve pipeline state\\.", parse_mode=ParseMode.MARKDOWN_V2)
@@ -280,9 +290,9 @@ async def resume_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("⏯ Resuming pipeline\\.\\.\\.", parse_mode=ParseMode.MARKDOWN_V2)
 
-    graph = get_graph()
+    graph = await get_graph()
     config = {"configurable": {"thread_id": thread_id}}
-    state_snapshot = graph.get_state(config)
+    state_snapshot = await graph.aget_state(config)
 
     if not state_snapshot or not state_snapshot.values:
         await update.message.reply_text("Could not resume — no saved state found\\.", parse_mode=ParseMode.MARKDOWN_V2)
@@ -384,7 +394,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("Session expired\\. Please send /start to begin again\\.", parse_mode=ParseMode.MARKDOWN_V2)
         return
 
-    graph = get_graph()
+    graph = await get_graph()
     config = {"configurable": {"thread_id": thread_id}}
 
     # ── Approve all scenes ────────────────────────────────────────────────────
@@ -392,12 +402,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_reply_markup(None)
         await context.bot.send_message(chat_id, "✅ Scene plan approved\\! Processing scenes\\.\\.\\.", parse_mode=ParseMode.MARKDOWN_V2)
 
-        graph.update_state(config, {"scenes_approved": True, "regenerate_scenes": False})
+        await graph.aupdate_state(config, {"scenes_approved": True, "regenerate_scenes": False})
         state = await _run_pipeline(thread_id, chat_id=chat_id, bot=context.bot)
 
         if state:
             # Check if we stopped at scene approval
-            state_snapshot = graph.get_state(config)
+            state_snapshot = await graph.aget_state(config)
             if state_snapshot and "human_approve_scene" in (state_snapshot.next or []):
                 await _send_scene_for_approval(context.bot, chat_id, state)
 
@@ -406,7 +416,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_reply_markup(None)
         await context.bot.send_message(chat_id, "🔄 Regenerating scene plan\\.\\.\\.", parse_mode=ParseMode.MARKDOWN_V2)
 
-        graph.update_state(config, {"regenerate_scenes": True, "scenes_approved": False})
+        await graph.aupdate_state(config, {"regenerate_scenes": True, "scenes_approved": False})
         state = await _run_pipeline(thread_id, chat_id=chat_id, bot=context.bot)
 
         if state:
@@ -422,11 +432,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=ParseMode.MARKDOWN_V2,
         )
 
-        graph.update_state(config, {"current_scene_approved": True, "regenerate_current_scene": False})
+        await graph.aupdate_state(config, {"current_scene_approved": True, "regenerate_current_scene": False})
         state = await _run_pipeline(thread_id, chat_id=chat_id, bot=context.bot)
 
         if state:
-            state_snapshot = graph.get_state(config)
+            state_snapshot = await graph.aget_state(config)
             next_nodes = state_snapshot.next if state_snapshot else []
 
             if state_snapshot and "human_approve_scene" in (next_nodes or []):
@@ -451,11 +461,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=ParseMode.MARKDOWN_V2,
         )
 
-        graph.update_state(config, {"regenerate_current_scene": True, "current_scene_approved": False})
+        await graph.aupdate_state(config, {"regenerate_current_scene": True, "current_scene_approved": False})
         state = await _run_pipeline(thread_id, chat_id=chat_id, bot=context.bot)
 
         if state:
-            state_snapshot = graph.get_state(config)
+            state_snapshot = await graph.aget_state(config)
             if state_snapshot and "human_approve_scene" in (state_snapshot.next or []):
                 await _send_scene_for_approval(context.bot, chat_id, state)
 
@@ -470,19 +480,19 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         # Mark scene as skipped and approved to advance
-        graph_state = graph.get_state(config)
+        graph_state = await graph.aget_state(config)
         if graph_state and graph_state.values:
             scenes = list(graph_state.values.get("scenes", []))
             if scene_idx < len(scenes):
                 scene = dict(scenes[scene_idx])
                 scene["skip"] = True
                 scenes[scene_idx] = scene
-            graph.update_state(config, {"scenes": scenes, "current_scene_approved": True})
+            await graph.aupdate_state(config, {"scenes": scenes, "current_scene_approved": True})
 
         state = await _run_pipeline(thread_id, chat_id=chat_id, bot=context.bot)
 
         if state:
-            state_snapshot = graph.get_state(config)
+            state_snapshot = await graph.aget_state(config)
             next_nodes = state_snapshot.next if state_snapshot else []
             if "human_approve_scene" in (next_nodes or []):
                 await _send_scene_for_approval(context.bot, chat_id, state)
