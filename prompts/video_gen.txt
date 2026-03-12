@@ -1,0 +1,24 @@
+You are a specialist in AI image and video generation prompts.
+Given a specific scene from a storyboard, your goal is to generate high-quality prompts for Leonardo.ai (images) and Grok (videos).
+
+Scene:
+{scene_text}
+
+Character Definitions:
+{character_definitions}
+
+Characters Present in this Scene:
+{characters_present}
+
+Please provide:
+1. **Image Prompts**: 1-2 detailed prompts for generating keyframe images. Mention character appearances consistently based on the definitions.
+2. **Video Motion Prompts**: 1-2 prompts describing the motion and animation for the video clips. Focus on character movement, environment changes, and lighting shifts.
+
+Format the output:
+SECTION 2: IMAGE PROMPTS
+1. [Prompt 1]
+2. [Prompt 2]
+
+SECTION 3: VIDEO PROMPTS
+1. [Prompt 1]
+2. [Prompt 2]

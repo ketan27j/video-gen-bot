@@ -1,0 +1,38 @@
+1. Static Shot (No movement)
+2. Pan Left (Slow)
+3. Pan Right (Slow)
+4. Tilt Up
+5. Tilt Down
+6. Zoom In (Slow)
+7. Zoom Out (Slow)
+8. Dolly In (Steady)
+9. Dolly Out (Steady)
+10. Truck Left
+11. Truck Right
+12. Pedestal Up
+13. Pedestal Down
+14. Arc Left (Cinematic orbit)
+15. Arc Right (Cinematic orbit)
+16. Crane Shot (Rising)
+17. Crane Shot (Descending)
+18. Rack Focus (Foreground to Background)
+19. Rack Focus (Background to Foreground)
+20. Whip Pan (Fast transition)
+21. Vertigo Effect (Dolly Zoom)
+22. Handheld Shake (Action/Intensity)
+23. Steadicam Follow (Behind character)
+24. Steadicam Lead (In front of character)
+25. 360-Degree Orbit
+26. Low Angle (Heroic/Imposing)
+27. High Angle (Vulnerable/Bird's eye)
+28. Dutch Angle (Unease/Tension)
+29. Over-the-Shoulder
+30. Point of View (POV)
+31. Close-up (Emotional focus)
+32. Extreme Close-up (Detail focus)
+33. Medium Shot
+34. Long Shot (Establishing)
+35. Extreme Long Shot (Scale)
+36. Cowboy Shot (Mid-thigh up)
+37. Ground Level Shot
+38. Overhead/Plan View
