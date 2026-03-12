@@ -1,6 +1,6 @@
 """
 utils/llm.py
-Returns the configured LLM instance (Anthropic or OpenAI).
+Returns the configured LLM instance (Anthropic, OpenAI, OpenRouter, or Gemini).
 """
 
 import os
@@ -26,5 +26,20 @@ def get_llm():
             api_key=os.getenv("OPENAI_API_KEY"),
             max_tokens=4096,
         )
+    elif provider == "openrouter":
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(
+            model=model or "anthropic/claude-3.5-sonnet",
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+            base_url="https://openrouter.ai/api/v1",
+            max_tokens=4096,
+        )
+    elif provider == "gemini":
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        return ChatGoogleGenerativeAI(
+            model=model or "gemini-2.5-flash",
+            google_api_key=os.getenv("GEMINI_API_KEY"),
+            max_tokens=4096,
+        )
     else:
-        raise ValueError(f"Unknown LLM_PROVIDER: {provider}. Use 'anthropic' or 'openai'.")
+        raise ValueError(f"Unknown LLM_PROVIDER: {provider}. Use 'anthropic', 'openai', 'openrouter', or 'gemini'.")
