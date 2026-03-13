@@ -31,7 +31,7 @@ def format_story_plan(
 
     lines.append("👥 *Characters*")
     for name, desc in character_definitions.items():
-        lines.append(f"• *{_escape(name)}*: {_escape(desc[:120])}{'...' if len(desc) > 120 else ''}")
+        lines.append(f"• *{_escape(name)}*: {_escape(desc[:120])}{'\\.\\.\\.' if len(desc) > 120 else ''}")
     lines.append("")
 
     lines.append(f"🎭 *{len(scenes)} Scenes*")
